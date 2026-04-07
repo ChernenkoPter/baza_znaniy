@@ -1,0 +1,67 @@
+name: Pre-release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  pre-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get commit message
+        id: commit
+        run: echo "msg=$(git log -1 --format=%s)" >> $GITHUB_OUTPUT
+
+      - name: Check format
+        id: check
+        run: |
+          if [[ "${{ steps.commit.outputs.msg }}" =~ ^[0-9]{2}(\.[0-9]{2}){0,2}\ finished$ ]]; then
+            echo "match=true" >> $GITHUB_OUTPUT
+          else
+            echo "match=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(echo "${{ steps.commit.outputs.msg }}" | sed -E 's/^([^ ]+)\ finished$/\1/')
+          echo "tag=pre-$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if release exists
+        id: check_release
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create pre-release
+        if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.commit.outputs.msg }}" \
+            --prerelease \
+            --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: merge documentation
+        if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'
+        run: ./build-docs.sh
+
+      - name: Upload artifact to release
+        if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" \
+            ./pre-release-*.md \
+            --clobber \
+            --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

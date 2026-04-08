@@ -54,7 +54,7 @@ jobs:
       
       - name: merge documentation
         if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'
-        run: ./scripts/build-docs.sh "${{ steps.version.outputs.tag }}.md"
+        run: ./.scripts/build-docs.sh "${{ steps.version.outputs.tag }}.md"
 
       - name: Upload artifact to release
         if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'

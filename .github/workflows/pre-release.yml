@@ -29,7 +29,7 @@ jobs:
         id: version
         run: |
           VERSION=$(echo "${{ steps.commit.outputs.msg }}" | sed -E 's/^([^ ]+)\ finished$/\1/')
-          echo "tag=pre-$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=pre-release-$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check if release exists
         id: check_release
@@ -54,13 +54,13 @@ jobs:
       
       - name: merge documentation
         if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'
-        run: ./build-docs.sh
+        run: ./build-docs.sh "${{ steps.version.outputs.tag }}.md"
 
       - name: Upload artifact to release
         if: steps.check.outputs.match == 'true' && steps.check_release.outputs.exists == 'false'
         run: |
-          gh release upload "${{ steps.version.outputs.tag }}" \
-            ./pre-release-*.md \
+          gh release upload "${{ steps.version.outputs.tag }}.md" \
+            ./"${{ steps.version.outputs.tag }}".md \
             --clobber \
             --repo ${{ github.repository }}
         env:
